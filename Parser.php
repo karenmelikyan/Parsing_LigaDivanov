@@ -1,31 +1,52 @@
 <?php
 
 
+
 class Parser
 {
        private  $domain;
        private  $needLinksPrefix;
-       private  $allLinks = [];
+       private  $needTags = [];
+       private  $allLinksArr = [];
 
-       public function __construct($domain, $needLinksPrefix)
+       public function __construct($domain, $needLinksPrefix, $needTags)
        {
            $this->domain = $domain;
+           $this->needTags = $needTags;
            $this->needLinksPrefix = $needLinksPrefix;
        }
 
       /**
        * @return array|null
        */
-       public function run(): ?array
+       public function run(): array
        {
-             $html = $this->curlRequest($this->domain);
+           /** getting first data from main page */
+           $html = $this->curlRequest($this->domain);
 
-             if($linksArr = $this->getAllLinksOnPage($html)){
-                 $linksArr = $this->getFiltredData($linksArr);
-                 return $linksArr;
-             }
+           if($linksArr = $this->getAllLinksFromPage($html)){
+               $this->allLinksArr = array_merge($this->allLinksArr, $this->getFiltredData($linksArr));
+           }
 
-             return null;
+           $this->traversal(0);
+
+           return $this->allLinksArr; // = array_values(array_unique($this->allLinksArr));
+       }
+
+       /**
+        * @param $nextLinkIndex
+        */
+       private function traversal($nextLinkIndex)
+       {
+           $html = $this->curlRequest($this->allLinksArr[$nextLinkIndex]);
+
+           if($linksArr = $this->getAllLinksFromPage($html)){
+               $this->allLinksArr = array_merge($this->allLinksArr, $linksArr);
+           }
+
+           if(count($this->allLinksArr) - 1 > $nextLinkIndex){
+               $this->traversal(++ $nextLinkIndex);
+           }
        }
 
        /**
@@ -85,7 +106,7 @@ class Parser
          * @param $html_text
          * @return mixed|null
          */
-        private function getAllLinksOnPage($html): ?array
+        private function getAllLinksFromPage($html): ?array
         {
             /* Вызываем функцию, которая все совпадения помещает в массив $matches */
             preg_match_all("/<[Aa][\s]{1}[^>]*[Hh][Rr][Ee][Ff][^=]*=[ '\"\s]*([^ \"'>\s#]+)[^>]*>/", $html, $matches);

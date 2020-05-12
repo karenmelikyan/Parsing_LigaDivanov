@@ -1,20 +1,41 @@
 <?php
+
 if(isset($_POST['start'])){
 
-    require_once 'Parser.php';
-    set_time_limit(0);
+     require_once 'SimpleParser.php';
+     set_time_limit(0);
+
+    (new SimpleParser('https://ligadivanov.ru/', 'catalog'))->run();
 
 
 
-
-    $arr = (new Parser('https://ligadivanov.ru/', 'catalog' ))->run();
-
-
-    foreach ($arr as $elem){
-        echo $elem . '</br>';
-    }
+//    require_once 'Parser.php';
+//    set_time_limit(0);
+//
+//
+//    $arr = (new Parser('', 'catalog', [
+//        'item_title' => ['startTag' => '<span itemprop="name">'],
+//                        ['finishTag' => '</span>'],
+//
+//        'old price' =>  ['startTag' => '<div class="detail_item_oldprice"><span>'],
+//                        ['finishTag' => '</span>'],
+//
+//        'new price' =>  ['startTag' => '<div class="detail_item_price"><span>'],
+//                        ['finishTag' => '</span>'],
+//
+//        'pic' => ['startTag' => '<div class="detail_item_color_tooltip">'],
+//                 ['finishTag' => 'alt='],
+//
+//    ]))->run();
+//
+//    //var_dump($arr);
+//
+//    for($i = 0; $i < count($arr); $i ++){
+//        echo $i . ' = ' . $arr[$i] . '</br>';
+//    }
 
 }
+
 ?>
 
 
