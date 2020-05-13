@@ -1,13 +1,13 @@
 <?php
 
 
-
 class Parser
 {
-       private  $domain;
-       private  $needLinksPrefix;
-       private  $needTags = [];
-       private  $allLinksArr = [];
+       private $domain;
+       private $needLinksPrefix;
+       private $needTags = [];
+       private $allUriArr = [];
+       private $extractedData = [];
 
        public function __construct($domain, $needLinksPrefix, $needTags)
        {
@@ -24,29 +24,86 @@ class Parser
            /** getting first data from main page */
            $html = $this->curlRequest($this->domain);
 
-           if($linksArr = $this->getAllLinksFromPage($html)){
-               $this->allLinksArr = array_merge($this->allLinksArr, $this->getFiltredData($linksArr));
+           /** gets all links */
+           if($uriArr = $this->getAllLinksFromPage($html)){
+               /** add it to allUriArr */
+               $this->allUriArr = array_merge($this->allUriArr, $this->getFiltredData($uriArr));
+               /** stores only unique URIs */
+               $this->allUriArr = array_values(array_unique($this->allUriArr));
            }
 
-           $this->traversal(0);
+           /**
+            *  Crawl all links in allUriArr
+            *  starting at index 0
+            */
+          $this->traversal(0);
 
-           return $this->allLinksArr; // = array_values(array_unique($this->allLinksArr));
+           return $this->allUriArr;
        }
 
        /**
         * @param $nextLinkIndex
+        *
+        * rekusive function for all links traversal
         */
-       private function traversal($nextLinkIndex)
+       private function traversal($uriIndex)
        {
-           $html = $this->curlRequest($this->allLinksArr[$nextLinkIndex]);
+           $url = '';
 
-           if($linksArr = $this->getAllLinksFromPage($html)){
-               $this->allLinksArr = array_merge($this->allLinksArr, $linksArr);
+           /** checking the string URI for the desired content */
+           if(stristr( $this->allUriArr[$uriIndex], $this->needLinksPrefix)){
+               $url = $this->domain . $this->allUriArr[$uriIndex];
            }
 
-           if(count($this->allLinksArr) - 1 > $nextLinkIndex){
-               $this->traversal(++ $nextLinkIndex);
+           /** make request by URL & get page html*/
+           if($html = $this->curlRequest($url)){
+               /** extract all need data from html */
+               //$this->extractData($html);
+
+               /** gets all links */
+               if($uriArr = $this->getAllLinksFromPage($html)){
+                   /** add it to allUriArr */
+                   $this->allUriArr = array_merge($this->allUriArr, $this->getFiltredData($uriArr));
+                   /** stores only unique URIs */
+                   $this->allUriArr = array_values(array_unique($this->allUriArr));
+               }
+           }else{
+               echo 'something went wrong ' . $url;
            }
+
+           /**
+            * if in URI array exist missed elements -
+            * invokes recursive function again for them.
+            */
+           // if(count($this->allUriArr) - 1 > $uriIndex){
+           if($uriIndex < 50){
+               $this->traversal(++ $uriIndex);
+           }
+
+       }
+
+       /**
+        * @param $html
+        */
+       private function extractData($html)
+       {
+           $itemTitle = '';
+           $oldPrice  = '';
+           $newPrice  = '';
+           $pic       = '';
+
+           if($primaryTitle = $this->getBetweenFirstTags($html, '<title>', '</title>')){
+               if(stristr($primaryTitle, 'руб.')){
+                   echo $primaryTitle;
+
+                   die();
+//                 echo $itemTitle = $this->getBetweenFirstTag($html, $this->needTags['itemTitle']['startTag'], $this->needTags['itemTitle']['finishTag']);
+//                 echo$oldPrice  = $this->getBetweenFirstTag($html, $this->needTags['oldPrice']['startTag'], $this->needTags['oldPrice']['finishTag']);
+//                 echo $newPrice  = $this->getBetweenFirstTag($html, $this->needTags['newPrice']['startTag'], $this->needTags['newPrice']['finishTag']);
+//                 $pic = $this->getBetweenTags($html, $this->needTags['pic']['startTag'], $this->needTags['pic']['finishTag']);
+               }
+           }
+
        }
 
        /**
@@ -71,9 +128,9 @@ class Parser
          * @param $finishTag
          * @return array
          */
-       private function Get_Between_Tags($text, $startTag, $finishTag): ?array
+       private function getBetweenTags($text, $startTag, $finishTag): ?array
        {
-           $textArr = array();
+           $textArr = [];
            $arr1 = explode($startTag, $text);
 
            for($i = 1; $i < count($arr1); $i ++) {
@@ -81,7 +138,11 @@ class Parser
                $textArr[] = $arr2[0];
            }
 
-           return $textArr;
+           if($textArr){
+               return $textArr;
+           }
+
+           return null;
        }
 
         /**
@@ -90,7 +151,7 @@ class Parser
          * @param $finishTag
          * @return array|null
          */
-        private function Get_Between_First_Tags($text, $startTag, $finishTag): ?array
+        private function getBetweenFirstTags($text, $startTag, $finishTag): ?string
         {
             $arr1 = explode($startTag, $text);
 
