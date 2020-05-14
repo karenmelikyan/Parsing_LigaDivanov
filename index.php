@@ -2,11 +2,6 @@
 
 if(isset($_POST['start'])){
 
-//     require_once 'SimpleParser.php';
-//     set_time_limit(0);
-//
-//    (new SimpleParser('https://ligadivanov.ru', 'catalog'))->run();
-
     require_once 'Parser.php';
     set_time_limit(0);
 
@@ -16,11 +11,7 @@ if(isset($_POST['start'])){
             'oldPrice' => ['startTag' => '<div class="detail_item_oldprice"><span>', 'finishTag' => '</span>'],
             'newPrice' => ['startTag' => '<div class="detail_item_price"><span>', 'finishTag' => '</span>'],
             'pic'      => ['startTag' => '<div class="detail_item_color_tooltip">', 'finishTag' => 'alt='],
-    ]))->run();
-
-    for($i = 0; $i < count($arr); $i ++){
-        echo $i . ' = ' . $arr[$i] . '</br>';
-    }
+    ]));//->run();
 
 }
 
@@ -30,9 +21,14 @@ if(isset($_POST['start'])){
 <html>
 <head>
     <title>Parser</title>
-    <!--<link href="views/css/site.css" rel="stylesheet">-->
 </head>
 <body >
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
 <br>
 <br>
 <br>

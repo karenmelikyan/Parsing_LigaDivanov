@@ -1,5 +1,6 @@
 <?php
 
+require_once 'MySqlBuilder.php';
 
 class Parser
 {
@@ -7,19 +8,35 @@ class Parser
        private $needLinksPrefix;
        private $needTags = [];
        private $allUriArr = [];
-       private $extractedData = [];
+       private $db;
 
        public function __construct($domain, $needLinksPrefix, $needTags)
        {
            $this->domain = $domain;
            $this->needTags = $needTags;
            $this->needLinksPrefix = $needLinksPrefix;
+           $this->db = new MySqlBuilder();
+
+           /** create database */
+           $this->db->setDbName('parser-test')
+               ->setDbHost('127.0.0.1')
+               ->setDbUserName('root')
+               ->setDbPassword('root')
+               ->setDbPort(3306)
+               ->setDbTableName('products')
+               ->setDbColumnProperties([
+                   'id' => "INT NOT NULL AUTO_INCREMENT PRIMARY KEY",
+                   'itemtitle' => "VARCHAR(200) NOT NULL",
+                   'oldprice' => "INT NOT NULL",
+                   'newprice' => "INT NOT NULL",
+                   'pics'     => "VARCHAR(200) NOT NULL",
+               ])->build();
        }
 
       /**
        * @return array|null
        */
-       public function run(): array
+       public function run()
        {
            /** getting first data from main page */
            $html = $this->curlRequest($this->domain);
@@ -36,9 +53,7 @@ class Parser
             *  Crawl all links in allUriArr
             *  starting at index 0
             */
-          $this->traversal(0);
-
-           return $this->allUriArr;
+           //$this->traversal(0);
        }
 
        /**
@@ -57,10 +72,11 @@ class Parser
 
            /** make request by URL & get page html*/
            if($html = $this->curlRequest($url)){
-               /** extract all need data from html */
-               //$this->extractData($html);
 
-               /** gets all links */
+               /** extract all need data from html */
+               $this->extractData($html);
+
+               /** gets all links from current page */
                if($uriArr = $this->getAllLinksFromPage($html)){
                    /** add it to allUriArr */
                    $this->allUriArr = array_merge($this->allUriArr, $this->getFiltredData($uriArr));
@@ -68,7 +84,7 @@ class Parser
                    $this->allUriArr = array_values(array_unique($this->allUriArr));
                }
            }else{
-               echo 'something went wrong ' . $url;
+               echo 'Can`t do request by ' . $url;
            }
 
            /**
@@ -94,13 +110,12 @@ class Parser
 
            if($primaryTitle = $this->getBetweenFirstTags($html, '<title>', '</title>')){
                if(stristr($primaryTitle, 'руб.')){
-                   echo $primaryTitle;
+                   $itemTitle = $this->getBetweenFirstTags($html, $this->needTags['itemTitle']['startTag'], $this->needTags['itemTitle']['finishTag']);
+                   $oldPrice  = $this->getBetweenFirstTags($html, $this->needTags['oldPrice']['startTag'], $this->needTags['oldPrice']['finishTag']);
+                   $newPrice  = $this->getBetweenFirstTags($html, $this->needTags['newPrice']['startTag'], $this->needTags['newPrice']['finishTag']);
 
-                   die();
-//                 echo $itemTitle = $this->getBetweenFirstTag($html, $this->needTags['itemTitle']['startTag'], $this->needTags['itemTitle']['finishTag']);
-//                 echo$oldPrice  = $this->getBetweenFirstTag($html, $this->needTags['oldPrice']['startTag'], $this->needTags['oldPrice']['finishTag']);
-//                 echo $newPrice  = $this->getBetweenFirstTag($html, $this->needTags['newPrice']['startTag'], $this->needTags['newPrice']['finishTag']);
-//                 $pic = $this->getBetweenTags($html, $this->needTags['pic']['startTag'], $this->needTags['pic']['finishTag']);
+                   //$pic = $this->getBetweenTags($html, $this->needTags['pic']['startTag'], $this->needTags['pic']['finishTag']);
+
                }
            }
 
