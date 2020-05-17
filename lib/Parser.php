@@ -1,118 +1,58 @@
 <?php
 
-require_once 'MySqlBuilder.php';
-
 class Parser
 {
        private $domain;
        private $needLinksPrefix;
        private $needTags = [];
-       private $allUriArr = [];
-       private $db;
 
        public function __construct($domain, $needLinksPrefix, $needTags)
        {
            /** properties initialization */
-           $this->domain = $domain;
-           $this->needTags = $needTags;
            $this->needLinksPrefix = $needLinksPrefix;
-
-           /** creating database instance */
-           $this->db = new MySqlBuilder();
-           $this->db->setDbName('parser-test')
-               ->setDbHost('127.0.0.1')
-               ->setDbUserName('root')
-               ->setDbPassword('root')
-               ->setDbPort(3306)
-               ->setDbTableName('products')
-               ->setDbColumnProperties([
-                   'id' => "INT NOT NULL AUTO_INCREMENT PRIMARY KEY",
-                   'itemTitle' => "VARCHAR(200) NOT NULL",
-                   'oldPrice'  => "VARCHAR(100) NOT NULL",
-                   'newPrice'  => "VARCHAR(100) NOT NULL",
-                   'pics'      => "TEXT NOT NULL",
-               ])->build();
-       }
-
-      /**
-       * @return array|null
-       */
-       public function run()
-       {
-           /** getting first data from main page */
-           $html = $this->curlRequest($this->domain);
-
-           /** gets all links */
-           if($uriArr = $this->getAllLinksFromPage($html)){
-               /** add it to allUriArr */
-               $this->allUriArr = array_merge($this->allUriArr, $this->getFiltredData($uriArr));
-               /** stores only unique URIs */
-               $this->allUriArr = array_values(array_unique($this->allUriArr));
-           }
-
-           /**
-            *  Crawl all links in `allUriArr`
-            *  starting at index 0
-            */
-           return $this->traversal(0);
+           $this->needTags = $needTags;
+           $this->domain = $domain;
        }
 
        /**
-        * @param $uriIndex
-        * @return mixed
-        *
-        * recursive function for all links traversal
+        * @return string
         */
-       private function traversal($uriIndex)
+       public function getDomain(): string
        {
-           $html = '';
-           $url = '';
+           return $this->domain;
+       }
 
-           /** checking the string URI for the desired content */
-           if(stristr( $this->allUriArr[$uriIndex], $this->needLinksPrefix)){
-               $url = $this->domain . $this->allUriArr[$uriIndex];
-           }else{
-               /**
-                * missing current index of `allUriArr`
-                * & invokes himself again
-                */
-               $this->traversal(++ $uriIndex);
-           }
-
-           /** make request by URL & get page html*/
+       /**
+        * @param $url
+        * @return string|null
+        */
+       public function getPageByUrl($url): ?string
+       {
            if($html = $this->curlRequest($url)){
-
-               /** extract all need data from html */
-               $this->extractData($html);
-
-               /** gets all links from current page */
-               if($uriArr = $this->getAllLinksFromPage($html)){
-                   /** add it to allUriArr */
-                   $this->allUriArr = array_merge($this->allUriArr, $this->getFiltredData($uriArr));
-                   /** stores only unique URIs */
-                   $this->allUriArr = array_values(array_unique($this->allUriArr));
-               }
+               return $html;
            }
 
-           /** free memory */
-           unset($html);
-           unset($uri);
-
-           /**
-            * if in URI array exist missed elements -
-            * invokes recursive function again for them.
-            */
-            if(count($this->allUriArr) - 1 > $uriIndex){
-            //if($uriIndex < 200){
-               $this->traversal(++ $uriIndex);
-           }
-
+           return null;
        }
 
        /**
         * @param $html
+        * @return array|null
         */
-       private function extractData($html)
+       public function getAllLinks($html): ?array
+       {
+           if($arr = $this->getAllLinksFromPage($html)){
+               return $this->getFiltredData($arr);
+           }
+
+           return null;
+       }
+
+        /**
+         * @param $html
+         * @return array|null
+         */
+       public function extractData($html): ?array
        {
            $extractedData = [];
            $data = '';
@@ -151,22 +91,38 @@ class Parser
                    if($data) {
                        for($i = 0; $i < 5; $i ++){//not more than 5 strings
                            if(isset($data[$i])){
-                               $extractedData['pics'] .= 'https://ligadivanov.ru/upload/' . $data[$i] . '.jpg|*|';
+                               $extractedData['pics'] .= $this->domain . '/upload/' . $data[$i] . '.jpg|*|';
                            }
                        }
                    }else{
                        $extractedData['pics'] = '0';
                    }
 
-                   /** insert data to database */
-                   $this->db->insert($extractedData);
-
-                   /** free memory */
-                   unset($extractedData);
-                   unset($data);
+                   return $extractedData;
                }
            }
+
+           return null;
        }
+
+        /**
+         * @param $html_text
+         * @return mixed|null
+         */
+        private function getAllLinksFromPage($html): ?array
+        {
+            /* Вызываем функцию, которая все совпадения помещает в массив $matches */
+            preg_match_all("/<[Aa][\s]{1}[^>]*[Hh][Rr][Ee][Ff][^=]*=[ '\"\s]*([^ \"'>\s#]+)[^>]*>/", $html, $matches);
+
+            if($matches[1] == null)
+                return null;
+
+            else if($matches[1])// Берём то место, где сама ссылка (благодаря группирующим скобкам в регулярном выражении)
+                return $matches[1];
+
+            else
+                return null;
+        }
 
        /**
         * @param $dataArr
@@ -184,12 +140,12 @@ class Parser
            return $finalData;
        }
 
-        /**
-         * @param $text
-         * @param $startTag
-         * @param $finishTag
-         * @return array
-         */
+       /**
+        * @param $text
+        * @param $startTag
+        * @param $finishTag
+        * @return array
+        */
        private function getBetweenAllTags($text, $startTag, $finishTag): ?array
        {
            $textArr = [];
@@ -223,22 +179,6 @@ class Parser
             }
 
             return null;
-        }
-
-        /**
-         * @param $html_text
-         * @return mixed|null
-         */
-        private function getAllLinksFromPage($html): ?array
-        {
-            /* Вызываем функцию, которая все совпадения помещает в массив $matches */
-            preg_match_all("/<[Aa][\s]{1}[^>]*[Hh][Rr][Ee][Ff][^=]*=[ '\"\s]*([^ \"'>\s#]+)[^>]*>/", $html, $matches);
-
-            if($matches[1] == null)
-                return null;
-
-            else // Берём то место, где сама ссылка (благодаря группирующим скобкам в регулярном выражении)
-                return $matches[1];
         }
 
         /**
