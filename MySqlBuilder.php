@@ -184,7 +184,7 @@ class MySqlBuilder
         $str = ' VALUES(NULL, ';
         foreach($this->tableColumnProperties as $key => $value){
             if($key !== 'id'){
-                /**  safety from sql injections */
+                                 /**  safety from sql injections */
                 $str .= '\'' .  htmlentities(mysqli_real_escape_string($this->db, $postData[$key])) . '\', ';
             }
         }

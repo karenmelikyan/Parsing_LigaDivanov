@@ -12,12 +12,13 @@ class Parser
 
        public function __construct($domain, $needLinksPrefix, $needTags)
        {
+           /** properties initialization */
            $this->domain = $domain;
            $this->needTags = $needTags;
            $this->needLinksPrefix = $needLinksPrefix;
-           $this->db = new MySqlBuilder();
 
-           /** create database */
+           /** creating database instance */
+           $this->db = new MySqlBuilder();
            $this->db->setDbName('parser-test')
                ->setDbHost('127.0.0.1')
                ->setDbUserName('root')
@@ -26,10 +27,10 @@ class Parser
                ->setDbTableName('products')
                ->setDbColumnProperties([
                    'id' => "INT NOT NULL AUTO_INCREMENT PRIMARY KEY",
-                   'itemtitle' => "VARCHAR(200) NOT NULL",
-                   'oldprice' => "INT NOT NULL",
-                   'newprice' => "INT NOT NULL",
-                   'pics'     => "VARCHAR(200) NOT NULL",
+                   'itemTitle' => "VARCHAR(200) NOT NULL",
+                   'oldPrice'  => "VARCHAR(100) NOT NULL",
+                   'newPrice'  => "VARCHAR(100) NOT NULL",
+                   'pics'      => "TEXT NOT NULL",
                ])->build();
        }
 
@@ -50,24 +51,32 @@ class Parser
            }
 
            /**
-            *  Crawl all links in allUriArr
+            *  Crawl all links in `allUriArr`
             *  starting at index 0
             */
-           //$this->traversal(0);
+           return $this->traversal(0);
        }
 
        /**
-        * @param $nextLinkIndex
+        * @param $uriIndex
+        * @return mixed
         *
-        * rekusive function for all links traversal
+        * recursive function for all links traversal
         */
        private function traversal($uriIndex)
        {
+           $html = '';
            $url = '';
 
            /** checking the string URI for the desired content */
            if(stristr( $this->allUriArr[$uriIndex], $this->needLinksPrefix)){
                $url = $this->domain . $this->allUriArr[$uriIndex];
+           }else{
+               /**
+                * missing current index of `allUriArr`
+                * & invokes himself again
+                */
+               $this->traversal(++ $uriIndex);
            }
 
            /** make request by URL & get page html*/
@@ -83,16 +92,18 @@ class Parser
                    /** stores only unique URIs */
                    $this->allUriArr = array_values(array_unique($this->allUriArr));
                }
-           }else{
-               echo 'Can`t do request by ' . $url;
            }
+
+           /** free memory */
+           unset($html);
+           unset($uri);
 
            /**
             * if in URI array exist missed elements -
             * invokes recursive function again for them.
             */
-           // if(count($this->allUriArr) - 1 > $uriIndex){
-           if($uriIndex < 50){
+            if(count($this->allUriArr) - 1 > $uriIndex){
+            //if($uriIndex < 200){
                $this->traversal(++ $uriIndex);
            }
 
@@ -103,22 +114,58 @@ class Parser
         */
        private function extractData($html)
        {
-           $itemTitle = '';
-           $oldPrice  = '';
-           $newPrice  = '';
-           $pic       = '';
+           $extractedData = [];
+           $data = '';
 
-           if($primaryTitle = $this->getBetweenFirstTags($html, '<title>', '</title>')){
-               if(stristr($primaryTitle, 'руб.')){
-                   $itemTitle = $this->getBetweenFirstTags($html, $this->needTags['itemTitle']['startTag'], $this->needTags['itemTitle']['finishTag']);
-                   $oldPrice  = $this->getBetweenFirstTags($html, $this->needTags['oldPrice']['startTag'], $this->needTags['oldPrice']['finishTag']);
-                   $newPrice  = $this->getBetweenFirstTags($html, $this->needTags['newPrice']['startTag'], $this->needTags['newPrice']['finishTag']);
+           /**  checking: is it the necessary item page? */
+           if($data = $this->getBetweenFirstTags($html, $this->needTags['primaryTitle']['startTag'], $this->needTags['primaryTitle']['finishTag'])){
+               if(stristr($data, 'руб.')){
 
-                   //$pic = $this->getBetweenTags($html, $this->needTags['pic']['startTag'], $this->needTags['pic']['finishTag']);
+                   /**  getting item title  */
+                   $data = $this->getBetweenFirstTags($html, $this->needTags['itemTitle']['startTag'], $this->needTags['itemTitle']['finishTag']);
+                   if($data){
+                       $extractedData['itemTitle'] = $data;
+                   }else {
+                       $extractedData['itemTitle'] = '0';
+                   }
 
+                   /**  getting old price */
+                   $data = $this->getBetweenFirstTags($html, $this->needTags['oldPrice']['startTag'], $this->needTags['oldPrice']['finishTag']);
+                   if($data){
+                       $extractedData['oldPrice'] = $data;
+                   }else{
+                       $extractedData['oldPrice'] = '0';
+                   }
+
+                   /**  getting new price */
+                   $data = $this->getBetweenFirstTags($html, $this->needTags['newPrice']['startTag'], $this->needTags['newPrice']['finishTag']);
+                   if($data){
+                       $extractedData['newPrice'] = $data;
+                   }else{
+                       $extractedData['newPrice'] = '0';
+                   }
+
+                   /** getting all pictures of item*/
+                   $extractedData['pics'] = '';
+                   $data = $this->getBetweenAllTags($html, $this->needTags['pics']['startTag'], $this->needTags['pics']['finishTag']);
+                   if($data) {
+                       for($i = 0; $i < 5; $i ++){//not more than 5 strings
+                           if(isset($data[$i])){
+                               $extractedData['pics'] .= 'https://ligadivanov.ru/upload/' . $data[$i] . '.jpg|*|';
+                           }
+                       }
+                   }else{
+                       $extractedData['pics'] = '0';
+                   }
+
+                   /** insert data to database */
+                   $this->db->insert($extractedData);
+
+                   /** free memory */
+                   unset($extractedData);
+                   unset($data);
                }
            }
-
        }
 
        /**
@@ -143,7 +190,7 @@ class Parser
          * @param $finishTag
          * @return array
          */
-       private function getBetweenTags($text, $startTag, $finishTag): ?array
+       private function getBetweenAllTags($text, $startTag, $finishTag): ?array
        {
            $textArr = [];
            $arr1 = explode($startTag, $text);

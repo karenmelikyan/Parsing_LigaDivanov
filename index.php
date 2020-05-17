@@ -1,17 +1,18 @@
 <?php
 
+
 if(isset($_POST['start'])){
 
     require_once 'Parser.php';
     set_time_limit(0);
 
-    $arr = (new Parser('https://ligadivanov.ru', 'catalog', [
+    (new Parser('https://ligadivanov.ru', 'catalog', [
             'primaryTitle' => ['startTag' => '<title>', 'finishTag' => '</title>'],
-            'itemTitle'=> ['startTag' => '<span itemprop="name">', 'finishTag' => '</span>'],
+            'itemTitle'=> ['startTag' => '<h1 class="detail_item_title">', 'finishTag' => '</h1>'],
             'oldPrice' => ['startTag' => '<div class="detail_item_oldprice"><span>', 'finishTag' => '</span>'],
             'newPrice' => ['startTag' => '<div class="detail_item_price"><span>', 'finishTag' => '</span>'],
-            'pic'      => ['startTag' => '<div class="detail_item_color_tooltip">', 'finishTag' => 'alt='],
-    ]));//->run();
+            'pics'     => ['startTag' => '<img src="/bitrix/images/transparent.png"  data-src="/upload/', 'finishTag' => '.jpg'],
+    ]))->run();
 
 }
 
