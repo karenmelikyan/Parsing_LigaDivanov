@@ -4,12 +4,14 @@ class Parser
 {
        private $domain;
        private $needLinksPrefix;
+       private $exceptLinksPrefix;
        private $needTags = [];
 
-       public function __construct($domain, $needLinksPrefix, $needTags)
+       public function __construct($domain, $needLinksPrefix, $exceptLinksPrefix,  $needTags)
        {
            /** properties initialization */
            $this->needLinksPrefix = $needLinksPrefix;
+           $this->exceptLinksPrefix = $exceptLinksPrefix;
            $this->needTags = $needTags;
            $this->domain = $domain;
        }
@@ -39,10 +41,18 @@ class Parser
         * @param $html
         * @return array|null
         */
-       public function getAllLinks($html): ?array
+       public function getNeedLinks($html): ?array
        {
-           if($arr = $this->getAllLinksFromPage($html)){
-               return $this->getFiltredData($arr);
+           $finalData = [];
+           if($dataArr = $this->getAllLinksFromPage($html)){
+               foreach ($dataArr as $item) {
+                   if(substr($item, 0, 9) == $this->needLinksPrefix &&
+                       stristr($item, $this->exceptLinksPrefix) == false){
+                           $finalData[] = $item;
+                   }
+               }
+
+               return $finalData;
            }
 
            return null;
@@ -56,46 +66,116 @@ class Parser
        {
            $extractedData = [];
            $data = '';
+           $char = '';
 
            /**  checking: is it the necessary item page? */
-           if($data = $this->getBetweenFirstTags($html, $this->needTags['primaryTitle']['startTag'], $this->needTags['primaryTitle']['finishTag'])){
+           if($data = $this->getBetweenFirstTags($html, $this->needTags['primary_title']['startTag'], $this->needTags['primary_title']['finishTag'])){
                if(stristr($data, 'руб.')){
 
+                   /** getting category of item */
+                   $extractedData['category'] = '';
+                   $char = $this->getBetweenFirstTags($html, $this->needTags['primary_category']['startTag'], $this->needTags['primary_category']['finishTag']);
+                   if($char){
+                       $categoryArr = $this->getBetweenAllTags($char, $this->needTags['category']['startTag'], $this->needTags['category']['finishTag']);
+                       $data = '';
+                       foreach( $categoryArr as $item){
+                           if($item != 'Каталог' && $item != 'Главная'){
+                               $data .=  $item . '|';
+                               $extractedData['category'] = rtrim($data, '|');
+                           }
+                       }
+
+                       $char = null;
+                       $data = null;
+                   }
+
                    /**  getting item title  */
-                   $data = $this->getBetweenFirstTags($html, $this->needTags['itemTitle']['startTag'], $this->needTags['itemTitle']['finishTag']);
+                   $extractedData['item_title'] = '';
+                   $data = $this->getBetweenFirstTags($html, $this->needTags['item_title']['startTag'], $this->needTags['item_title']['finishTag']);
                    if($data){
-                       $extractedData['itemTitle'] = $data;
+                       $extractedData['item_title'] = $data;
+                       $data = null;
                    }else {
-                       $extractedData['itemTitle'] = '0';
+                       $extractedData['item_title'] = null;
                    }
 
-                   /**  getting old price */
-                   $data = $this->getBetweenFirstTags($html, $this->needTags['oldPrice']['startTag'], $this->needTags['oldPrice']['finishTag']);
+                   /**  getting item sku */
+                   $extractedData['sku'] = '';
+                   $data = $this->getBetweenFirstTags($html, $this->needTags['sku']['startTag'], $this->needTags['sku']['finishTag']);
                    if($data){
-                       $extractedData['oldPrice'] = $data;
-                   }else{
-                       $extractedData['oldPrice'] = '0';
+                       $extractedData['sku'] = $data;
+                       $data = null;
+                   }else {
+                       $extractedData['sku'] = null;
                    }
 
-                   /**  getting new price */
-                   $data = $this->getBetweenFirstTags($html, $this->needTags['newPrice']['startTag'], $this->needTags['newPrice']['finishTag']);
-                   if($data){
-                       $extractedData['newPrice'] = $data;
+
+                   /**  getting regular price & sale price */
+                   $char = $this->getBetweenFirstTags($html, $this->needTags['primary_price']['startTag'], $this->needTags['primary_price']['finishTag']);
+                   if(stristr($char, 'detail_item_oldprice')){
+                       $data = $this->getBetweenFirstTags($char, $this->needTags['regular_price']['startTag'], $this->needTags['regular_price']['finishTag']);
+                       if($data){
+                           $extractedData['regular_price'] = $data;
+                           $data = null;
+                       }
+                       $data = $this->getBetweenFirstTags($char, $this->needTags['sale_price']['startTag'], $this->needTags['sale_price']['finishTag']);
+                       if($data){
+                           $extractedData['sale_price'] = $data;
+                           $data = null;
+                       }
+
                    }else{
-                       $extractedData['newPrice'] = '0';
+                       $data = $this->getBetweenFirstTags($char, $this->needTags['sale_price']['startTag'], $this->needTags['sale_price']['finishTag']);
+                       if($data){
+                           $extractedData['regular_price'] = $data;
+                           $extractedData['sale_price'] = null;
+                           $data = null;
+                       }
+                   }
+
+                   /** getting all description of item */
+                   $extractedData['product_desc'] = '';
+                   $data = $this->getBetweenAllTags($html, $this->needTags['product_desc']['startTag'], $this->needTags['product_desc']['finishTag']);
+                   if($data) {
+                       foreach($data as $value) {
+                           $extractedData['product_desc'] .= $value;
+                       }
+
+                       $data = null;
+                   }else{
+                       $extractedData['product_desc'] = null;
                    }
 
                    /** getting all pictures of item*/
                    $extractedData['pics'] = '';
                    $data = $this->getBetweenAllTags($html, $this->needTags['pics']['startTag'], $this->needTags['pics']['finishTag']);
                    if($data) {
-                       for($i = 0; $i < 5; $i ++){//not more than 5 strings
-                           if(isset($data[$i])){
-                               $extractedData['pics'] .= $this->domain . '/upload/' . $data[$i] . '.jpg|*|';
+                       foreach($data as $value) {
+                               $extractedData['pics'] .= $this->domain . '/upload/' . $value . '.jpg|';
+                           }
+
+                       $data = null;
+                   }else{
+                       $extractedData['pics'] = null;
+                   }
+
+                   /** getting attributes of item */
+                   $char = $this->getBetweenFirstTags($html, $this->needTags['charact']['startTag'], $this->needTags['charact']['finishTag']);
+                   if($char){
+                       $attributeKeyArr = $this->getBetweenAllTags($char, $this->needTags['attr_name']['startTag'], $this->needTags['attr_name']['finishTag']);
+                       $attributeValArr = $this->getBetweenAllTags($char, $this->needTags['attr_value']['startTag'], $this->needTags['attr_value']['finishTag']);
+
+                       for($i = 0, $index = 1; $i < 30; $i ++, $index ++){
+                           if(isset($attributeKeyArr[$i]) && isset($attributeValArr[$i])){
+                               $extractedData['attr_name_' . $index] = $attributeKeyArr[$i];
+                               $extractedData['attr_value_' . $index] = $attributeValArr[$i];
+                           }
+
+                           else{
+                               $extractedData['attr_name_' . $index] = null;
+                               $extractedData['attr_value_' . $index] = null;
                            }
                        }
-                   }else{
-                       $extractedData['pics'] = '0';
                    }
 
                    return $extractedData;
@@ -117,28 +197,9 @@ class Parser
             if($matches[1] == null)
                 return null;
 
-            else if($matches[1])// Берём то место, где сама ссылка (благодаря группирующим скобкам в регулярном выражении)
+            else // Берём то место, где сама ссылка (благодаря группирующим скобкам в регулярном выражении)
                 return $matches[1];
-
-            else
-                return null;
         }
-
-       /**
-        * @param $dataArr
-        * @return array
-        */
-       private function getFiltredData($dataArr): array
-       {
-           $finalData = [];
-           foreach ($dataArr as $item) {
-               if(stristr($item, $this->needLinksPrefix)){
-                   $finalData[] = $item;
-               }
-           }
-
-           return $finalData;
-       }
 
        /**
         * @param $text

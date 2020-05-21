@@ -14,7 +14,7 @@ class MySqlBuilder
 
     /**
      * @param $dbName
-     * @return MySqlFactory
+     * @return MySqlBuilder
      */
     public function setDbName($dbName): self
     {
@@ -24,7 +24,7 @@ class MySqlBuilder
 
     /**
      * @param $dbHost
-     * @return MySqlFactory
+     * @return MySqlBuilder
      */
     public function setDbHost($dbHost): self
     {
@@ -34,7 +34,7 @@ class MySqlBuilder
 
     /**
      * @param $dbUserName
-     * @return MySqlFactory
+     * @return MySqlBuilder
      */
     public function setDbUserName($dbUserName): self
     {
@@ -44,7 +44,7 @@ class MySqlBuilder
 
     /**
      * @param $dbPassword
-     * @return MySqlFactory
+     * @return MySqlBuilder
      */
     public function setDbPassword($dbPassword): self
     {
@@ -54,7 +54,7 @@ class MySqlBuilder
 
     /**
      * @param $dbPort
-     * @return MySqlFactory
+     * @return MySqlBuilder
      */
     public function setDbPort($dbPort): self
     {
@@ -64,7 +64,7 @@ class MySqlBuilder
 
     /**
      * @param $dbTableName
-     * @return MySqlFactory
+     * @return MySqlBuilder
      */
     public function setDbTableName($dbTableName): self
     {
@@ -74,7 +74,7 @@ class MySqlBuilder
 
     /**
      * @param $tableColumnProperties
-     * @return MySqlFactory
+     * @return MySqlBuilder
      */
     public function setDbColumnProperties($tableColumnProperties): self
     {
@@ -83,7 +83,7 @@ class MySqlBuilder
     }
 
     /**
-     * @return MySqlFactory
+     * @return MySqlBuilder
      */
     public function build(): self
     {
@@ -184,8 +184,7 @@ class MySqlBuilder
         $str = ' VALUES(NULL, ';
         foreach($this->tableColumnProperties as $key => $value){
             if($key !== 'id'){
-                                 /**  safety from sql injections */
-                $str .= '\'' .  htmlentities(mysqli_real_escape_string($this->db, $postData[$key])) . '\', ';
+                $str .= '\'' . $postData[$key] . '\', ';
             }
         }
         $str = substr($str, 0, strlen($str) - 2) . ')';
