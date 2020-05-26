@@ -1,7 +1,7 @@
 <?php
 
 
-class MySqlBuilder
+class MySqlBuilder implements \parser\DatabaseInterface
 {
     private $db;
     private $dbHost;
