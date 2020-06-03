@@ -28,7 +28,7 @@ class MyParser implements \parser\ParserInterface
      * @param $url
      * @return string|null
      */
-    public function getPageByUrl($url): ?string
+    public function getPageByUrl(string $url): ?string
     {
         if($html = $this->curlRequest($url)){
             return $html;
@@ -41,12 +41,12 @@ class MyParser implements \parser\ParserInterface
      * @param $html
      * @return array|null
      */
-    public function getNeedLinks($html): ?array
+    public function getNeedLinks(string $html): ?array
     {
         $finalData = [];
         if($dataArr = $this->getAllLinksFromPage($html)){
             foreach ($dataArr as $item) {
-                if(substr($item, 0, 9) == $this->needLinksPrefix &&
+                if(substr($item, 0, strlen($this->needLinksPrefix)) == $this->needLinksPrefix &&
                     stristr($item, $this->exceptLinksPrefix) == false){
                     $finalData[] = $item;
                 }
@@ -62,7 +62,7 @@ class MyParser implements \parser\ParserInterface
      * @param $html
      * @return array|null
      */
-    public function extractData($html): ?array
+    public function extractData(string $html): ?array
     {
         $extractedData = [];
         $data = '';
@@ -169,9 +169,7 @@ class MyParser implements \parser\ParserInterface
                         if(isset($attributeKeyArr[$i]) && isset($attributeValArr[$i])){
                             $extractedData['attr_name_' . $index] = $attributeKeyArr[$i];
                             $extractedData['attr_value_' . $index] = $attributeValArr[$i];
-                        }
-
-                        else{
+                        }else{
                             $extractedData['attr_name_' . $index] = null;
                             $extractedData['attr_value_' . $index] = null;
                         }

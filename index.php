@@ -1,45 +1,58 @@
 <?php
 
-
 require_once 'vendor/autoload.php';
+require_once 'ParserInterface.php';
+require_once 'DatabaseInterface.php';
+require_once 'lib/MyParser.php';
+require_once 'lib/DiDOMParser.php';
+require_once 'db/MySqlBuilder.php';
+require_once 'Facade.php';
 
-
-
-
-//______________________________________________________________________________
+use lib\DIDOMParser;
+use lib\MyParser;
 
 
 if(isset($_POST['start'])) {
-    //require_once 'vendor/autoload.php';
-    require_once 'ParserInterface.php';
-    require_once 'DatabaseInterface.php';
-    require_once 'lib/MyParser.php';
-    require_once 'db/MySqlBuilder.php';
-    require_once 'Facade.php';
 
     /** create parser instance */
-    $parser = new MyParser('https://ligadivanov.ru', '/catalog/', '?sort', [
-            'primary_category' => ['startTag' => 'id="bx_breadcrumb_0" itemprop="itemListElement"', 'finishTag' => '<div class="detail_item_article">Артикул:'],
-            'primary_title'    => ['startTag' => '<title>', 'finishTag' => '</title>'],
-            'category'         => ['startTag' => '<span itemprop="name">', 'finishTag' => '</span>'],
-            'item_title'       => ['startTag' => '<h1 class="detail_item_title">', 'finishTag' => '</h1>'],
-            'sku'              => ['startTag' => '<div class="item_aticle">Артикул:', 'finishTag' => '</div>'],
-            'primary_price'    => ['startTag' => '<div class="detail_item_price_block">', 'finishTag' => '<div class="detail_item_delivery_block">'],
-            'regular_price'    => ['startTag' => '<div class="detail_item_oldprice"><span>', 'finishTag' => '</span>'],
-            'sale_price'       => ['startTag' => '<div class="detail_item_price"><span>', 'finishTag' => '</span>'],
-            'product_desc'     => ['startTag' => '<div class="desktop">', 'finishTag' => '<div class="img_detail_inner">'],
-            'pics'             => ['startTag' => '<img src="/bitrix/images/transparent.png"  data-src="/upload/', 'finishTag' => '.jpg'],
-            'charact'          => ['startTag' => '<div class="chars_wrap">', 'finishTag' => '</table>'],
-            'attr_name'        => ['startTag' => '<span itemprop="name">', 'finishTag' => '</span>'],
-            'attr_value'       => ['startTag' => '<span itemprop="value">', 'finishTag' => '</span>'],
-   ]);
+    $parser = new DIDOMParser('https://ligadivanov.ru', '/catalog/', '?sort',[
+             'primary_title'   => "//title",
+             'category_parent' => "//span[contains(@id, 'bx_breadcrumb_0')]",
+             'category'        => "//span[contains(@itemprop, 'name')]",
+             'item_title'      => "//h1[contains(@class, 'detail_item_title')]",
+             'sku'             => "//div[contains(@class, 'detail_item_article')]",
+             'desc_parent'     => "//div[contains(@class, 'text_detail text')]",
+             'product_desc'    => "//div[contains(@class, 'mobile')]",
+             'price_parent'    =>"//div[contains(@class, 'detail_item_price')]",
+             'price'           => "//span",
+             'attr_parent'    => "//table[contains(@class, 'chars')]",
+             'attr_name'       => "//span[contains(@itemprop, 'name')]",
+             'attr_value'      => "//span[contains(@itemprop, 'value')]",
+             'pics'            => 'img[src]::attr(data-src)',
+    ]);
+
+//    $parser = new MyParser('https://ligadivanov.ru', '/catalog/', '?sort', [
+//            'primary_category' => ['startTag' => 'id="bx_breadcrumb_0" itemprop="itemListElement"', 'finishTag' => '<div class="detail_item_article">Артикул:'],
+//            'primary_title'    => ['startTag' => '<title>', 'finishTag' => '</title>'],
+//            'category'         => ['startTag' => '<span itemprop="name">', 'finishTag' => '</span>'],
+//            'item_title'       => ['startTag' => '<h1 class="detail_item_title">', 'finishTag' => '</h1>'],
+//            'sku'              => ['startTag' => '<div class="item_aticle">Артикул:', 'finishTag' => '</div>'],
+//            'primary_price'    => ['startTag' => '<div class="detail_item_price_block">', 'finishTag' => '<div class="detail_item_delivery_block">'],
+//            'regular_price'    => ['startTag' => '<div class="detail_item_oldprice"><span>', 'finishTag' => '</span>'],
+//            'sale_price'       => ['startTag' => '<div class="detail_item_price"><span>', 'finishTag' => '</span>'],
+//            'product_desc'     => ['startTag' => '<div class="desktop">', 'finishTag' => '<div class="img_detail_inner">'],
+//            'pics'             => ['startTag' => '<img src="/bitrix/images/transparent.png"  data-src="/upload/', 'finishTag' => '.jpg'],
+//            'charact'          => ['startTag' => '<div class="chars_wrap">', 'finishTag' => '</table>'],
+//            'attr_name'        => ['startTag' => '<span itemprop="name">', 'finishTag' => '</span>'],
+//            'attr_value'       => ['startTag' => '<span itemprop="value">', 'finishTag' => '</span>'],
+//   ]);
 
     /** create database instance  */
     $database = (new MySqlBuilder())
-       ->setDbName('parser-test')
+       ->setDbName('parser')
        ->setDbHost('127.0.0.1')
        ->setDbUserName('root')
-       ->setDbPassword('root')
+       ->setDbPassword('')
        ->setDbPort(3306)
        ->setDbTableName('products')
        ->setDbColumnProperties([
@@ -112,8 +125,7 @@ if(isset($_POST['start'])) {
                 'attr_name_30'  => "VARCHAR(100) NULL",
                 'attr_value_30' => "VARCHAR(100) NULL",
        ])->build();
-
-
+    
     /** start parsing */
     Facade::run($parser, $database);
 }

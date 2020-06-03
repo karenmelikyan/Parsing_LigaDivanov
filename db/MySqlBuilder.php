@@ -87,7 +87,7 @@ class MySqlBuilder implements \parser\DatabaseInterface
      */
     public function build(): self
     {
-        /** connect to SQL database & return instance of connection */
+        /** connect to SQL database & get instance of connection */
         $this->db = new mysqli($this->dbHost, $this->dbUserName, $this->dbPassword,
             $this->dbName, $this->dbPort) or die("Error " . mysqli_error($this->db));
 
@@ -101,10 +101,11 @@ class MySqlBuilder implements \parser\DatabaseInterface
         /** create table if not exist */
         if(!$this->db->query("CREATE TABLE IF NOT EXISTS " . $this->dbTableName)) {
             $query = 'CREATE Table' . ' ' . $this->dbTableName . ' ' . $str;
+
+            /** to do request to database */
+            mysqli_query($this->db, $query);
         }
 
-        /** to do request to database */
-        mysqli_query($this->db, $query);
 
         return $this;
     }

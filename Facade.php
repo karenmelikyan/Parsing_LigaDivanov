@@ -1,6 +1,5 @@
 <?php
 
-
 class Facade
 {
     private static $needUriArr = [];
